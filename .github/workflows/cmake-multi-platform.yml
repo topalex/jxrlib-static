@@ -45,3 +45,50 @@ jobs:
         path: |
           ${{ steps.strings.outputs.build-output-dir }}/Release/JxrDecApp.exe
           ${{ steps.strings.outputs.build-output-dir }}/Release/JxrEncApp.exe
+
+  create-release:
+    runs-on: ubuntu-20.04
+    needs: [ build ]
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        draft: true
+
+  pack-prebuilt-binaries:
+    runs-on: ubuntu-20.04
+    needs: [ create-release ]
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - windows-2022
+          - macos-12
+          - macos-14
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download the artifact for ${{ matrix.os }}
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ matrix.os }}
+
+    - name: Pack
+      run:
+        tar -zcvf ${{ matrix.os }}.tar.gz ${{ github.workspace }}
+
+    - name: Publish
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifacts: ${{ matrix.os }}.tar.gz
+        updateOnlyUnreleased: true
+        omitDraftDuringUpdate: true
