@@ -23,6 +23,7 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
         echo "platform=${{ runner.os }}-${{ runner.arch }}" >> "$GITHUB_OUTPUT"
+        echo "artifact=${{ github.workspace }}/build/${{ runner.os }}-${{ runner.arch }}.tar" >> "$GITHUB_OUTPUT"
 
     - name: Configure CMake
       run: cmake -B ${{ steps.strings.outputs.build-output-dir }} -S ${{ github.workspace }}
@@ -34,13 +35,13 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         cd ${{ steps.strings.outputs.build-output-dir }}
-        tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp JxrEncApp
+        tar -cvf ${{ steps.strings.outputs.artifact }} JxrDecApp JxrEncApp
 
     - name: Pack artifact (windows) ${{ matrix.os }} (${{ steps.strings.outputs.platform }})
       if: runner.os == 'Windows'
       run: |
         cd ${{ steps.strings.outputs.build-output-dir }}/Release
-        tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp.exe JxrEncApp.exe
+        tar -cvf ${{ steps.strings.outputs.artifact }} JxrDecApp.exe JxrEncApp.exe
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -61,6 +62,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: ${{ github.workspace }}/build
+        merge-multiple: true
 
     - name: Publish
       uses: ncipollo/release-action@v1
