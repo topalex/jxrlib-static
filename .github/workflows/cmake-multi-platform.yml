@@ -20,11 +20,28 @@ jobs:
     - name: Set reusable strings
       id: strings
       shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+      run: echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Configure CMake
       run: cmake -B ${{ steps.strings.outputs.build-output-dir }} -S ${{ github.workspace }}
 
     - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }}
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config Release
+
+    - name: Upload artifact: ${{ matrix.os }}
+      if: ${{ ! startsWith(matrix.os, 'windows') }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}
+        path: |
+          ${{ steps.strings.outputs.build-output-dir }}/JxrDecApp
+          ${{ steps.strings.outputs.build-output-dir }}/JxrEncApp
+
+    - name: Upload artifact (windows): ${{ matrix.os }}
+      if: startsWith(matrix.os, 'windows')
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}
+        path: |
+          ${{ steps.strings.outputs.build-output-dir }}/Release/JxrDecApp.exe
+          ${{ steps.strings.outputs.build-output-dir }}/Release/JxrEncApp.exe

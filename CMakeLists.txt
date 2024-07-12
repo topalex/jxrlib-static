@@ -1,127 +1,142 @@
+# Copyright Mathieu Malaterre <malat@debian.org>
+# BSD (Same as jxrlib)
+# Based on https://jxrlib.codeplex.com/discussions/440294
+cmake_minimum_required(VERSION 2.8)
 project(jxrlib C)
-cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
-cmake_policy(VERSION 3.9)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Need shared libs for ABI
+set(BUILD_SHARED_LIBS ON)
 
-set(JXRLIB_HEADER_FILES
-    common/include/guiddef.h
-    common/include/wmsal.h
-    common/include/wmspecstring.h
-    common/include/wmspecstrings_adt.h
-    common/include/wmspecstrings_strict.h
+# helper macro to preserve original Makefile convention
+macro(JXR_MAKE_OBJ SET_NAME)
+  foreach(src ${SRC_${SET_NAME}})
+    list(APPEND OBJ_${SET_NAME} ${DIR_${SET_NAME}}/${src})
+  endforeach()
+endmacro()
 
-    image/sys/windowsmediaphoto.h
-
-    jxrgluelib/JXRGlue.h
-    jxrgluelib/JXRMeta.h
-
-    jxrtestlib/JXRTest.h
-)
-
-add_library(jxrlib STATIC
-
-    image/decode/JXRTranscode.c
-    image/decode/decode.c
-    image/decode/postprocess.c
-    image/decode/segdec.c
-    image/decode/strInvTransform.c
-    image/decode/strPredQuantDec.c
-    image/decode/strdec.c
-    image/decode/strdec_x86.c
-
-    image/encode/encode.c
-    image/encode/segenc.c
-    image/encode/strFwdTransform.c
-    image/encode/strPredQuantEnc.c
-    image/encode/strenc.c
-    image/encode/strenc_x86.c
-
-    image/sys/adapthuff.c
-    image/sys/image.c
-    image/sys/perfTimerANSI.c
-    image/sys/strPredQuant.c
-    image/sys/strTransform.c
-    image/sys/strcodec.c
-
-    jxrgluelib/JXRGlue.c
-    jxrgluelib/JXRGlueJxr.c
-    jxrgluelib/JXRGluePFC.c
-    jxrgluelib/JXRMeta.c
-
-    jxrtestlib/JXRTest.c
-    jxrtestlib/JXRTestBmp.c
-    jxrtestlib/JXRTestHdr.c
-    jxrtestlib/JXRTestPnm.c
-    jxrtestlib/JXRTestTif.c
-    jxrtestlib/JXRTestYUV.c
-)
-add_library(jxrlib::jxrlib ALIAS jxrlib)
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") # Clang + AppleClang
-    target_compile_options(jxrlib
-        PUBLIC
-            -Wno-extra-tokens
-        PRIVATE
-            -Wno-unused-value
-            -Wno-dangling-else
-            -Wno-constant-conversion
-            -Wno-shift-negative-value
-            -Wno-implicit-function-declaration
-            -Wno-deprecated-declarations
-            -Wno-incompatible-pointer-types
-            -Wno-incompatible-pointer-types-discards-qualifiers
-    )
+if(NOT MSVC)
+  add_definitions(-D__ANSI__)
+  add_compile_options(-Wno-error=implicit-function-declaration)
 endif()
 
-target_compile_definitions(jxrlib
-PUBLIC
-    __ANSI__
-    DISABLE_PERF_MEASUREMENT
+include(TestBigEndian)
+test_big_endian(ISBIGENDIAN)
+if(ISBIGENDIAN)
+  set(DEF_ENDIAN _BIG__ENDIAN_)
+endif()
+
+set(DIR_SYS image/sys)
+set(DIR_DEC image/decode)
+set(DIR_ENC image/encode)
+
+set(DIR_GLUE jxrgluelib)
+set(DIR_TEST jxrtestlib)
+set(DIR_EXEC jxrencoderdecoder)
+
+set(VERSION "@VERSION@")
+set(SOVERSION "0")
+
+if(NOT JXRLIB_INSTALL_BINDIR)
+  set(JXRLIB_INSTALL_BINDIR "bin")
+endif()
+
+if(NOT JXRLIB_INSTALL_LIBDIR)
+  set(JXRLIB_INSTALL_LIBDIR "lib")
+endif()
+
+if(NOT JXRLIB_INSTALL_INCLUDEDIR)
+  set(JXRLIB_INSTALL_INCLUDEDIR "include/jxrlib")
+endif()
+
+include_directories(
+  common/include
+  ${DIR_SYS}
+  ${DIR_GLUE}
+  ${DIR_TEST}
 )
 
-include(GNUInstallDirs)
+# JPEG-XR
+set(SRC_SYS adapthuff.c image.c strcodec.c strPredQuant.c strTransform.c perfTimerANSI.c)
+JXR_MAKE_OBJ(SYS)
+set(SRC_DEC decode.c postprocess.c segdec.c strdec.c strInvTransform.c strPredQuantDec.c JXRTranscode.c)
+JXR_MAKE_OBJ(DEC)
+set(SRC_ENC encode.c segenc.c strenc.c strFwdTransform.c strPredQuantEnc.c)
+JXR_MAKE_OBJ(ENC)
 
-set(JXRLIB_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/jxrlib)
-set(JXRLIB_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/jxrlib)
-set(JXRLIB_LIBDIR ${CMAKE_INSTALL_LIBDIR})
-
-target_include_directories(jxrlib
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/image/sys>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/image/x86>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/jxrgluelib>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/jxrtestlib>
-        $<INSTALL_INTERFACE:${JXRLIB_INCLUDEDIR}>
+add_library(jpegxr STATIC ${OBJ_ENC} ${OBJ_DEC} ${OBJ_SYS})
+set_property(TARGET jpegxr
+  PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
+)
+set_property(TARGET jpegxr PROPERTY LINK_INTERFACE_LIBRARIES "")
+set_property(TARGET jpegxr PROPERTY COMPILE_FLAGS -w)
+set_property(TARGET jpegxr PROPERTY VERSION ${VERSION})
+set_property(TARGET jpegxr PROPERTY SOVERSION ${SOVERSION})
+install(TARGETS jpegxr
+  EXPORT JXRLibTargets
+  RUNTIME DESTINATION ${JXRLIB_INSTALL_BINDIR} COMPONENT Applications
+  LIBRARY DESTINATION ${JXRLIB_INSTALL_LIBDIR} COMPONENT Libraries
 )
 
-install(TARGETS jxrlib
-EXPORT
-    jxrlib_targets
-LIBRARY DESTINATION ${JXRLIB_LIBDIR}
-ARCHIVE DESTINATION ${JXRLIB_LIBDIR}
+# JXR-GLUE
+set(SRC_GLUE JXRGlue.c JXRMeta.c JXRGluePFC.c JXRGlueJxr.c)
+JXR_MAKE_OBJ(GLUE)
+set(SRC_TEST JXRTest.c JXRTestBmp.c JXRTestHdr.c JXRTestPnm.c JXRTestTif.c JXRTestYUV.c)
+JXR_MAKE_OBJ(TEST)
+
+add_library(jxrglue STATIC ${OBJ_GLUE} ${OBJ_TEST})
+set_property(TARGET jxrglue
+  PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
+)
+set_property(TARGET jxrglue PROPERTY COMPILE_FLAGS -w)
+set_property(TARGET jxrglue PROPERTY VERSION ${VERSION})
+set_property(TARGET jxrglue PROPERTY SOVERSION ${SOVERSION})
+install(TARGETS jxrglue
+  EXPORT JXRLibTargets
+  RUNTIME DESTINATION ${JXRLIB_INSTALL_BINDIR} COMPONENT Applications
+  LIBRARY DESTINATION ${JXRLIB_INSTALL_LIBDIR} COMPONENT Libraries
 )
 
-install(FILES ${JXRLIB_HEADER_FILES}
-DESTINATION ${JXRLIB_INCLUDEDIR}
-COMPONENT Devel
+target_link_libraries(jxrglue PRIVATE jpegxr)
+
+# Enc app files
+set(ENCAPP JxrEncApp)
+add_executable(${ENCAPP} ${DIR_EXEC}/${ENCAPP}.c)
+set_property(TARGET ${ENCAPP}
+  PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
+)
+set_property(TARGET ${ENCAPP} PROPERTY COMPILE_FLAGS -w)
+target_link_libraries(${ENCAPP} jxrglue) # jpegxr)
+install(TARGETS ${ENCAPP} RUNTIME DESTINATION ${JXRLIB_INSTALL_BINDIR})
+
+# Dec app files
+set(DECAPP JxrDecApp)
+add_executable(${DECAPP} ${DIR_EXEC}/${DECAPP}.c)
+set_property(TARGET ${DECAPP}
+  PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
+)
+set_property(TARGET ${DECAPP} PROPERTY COMPILE_FLAGS -w)
+target_link_libraries(${DECAPP} jxrglue) # jpegxr)
+install(TARGETS ${DECAPP} RUNTIME DESTINATION ${JXRLIB_INSTALL_BINDIR})
+
+# Generate pkgconfig file
+include(JoinPaths.cmake)
+join_paths(JXRLIB_PKGCONF_LIBDIR "\${prefix}" "${JXRLIB_INSTALL_LIBDIR}")
+join_paths(JXRLIB_PKGCONF_INCLUDEDIR "\${prefix}" "${JXRLIB_INSTALL_INCLUDEDIR}")
+configure_file(
+    "${PROJECT_SOURCE_DIR}/jxrlib.pc.in"
+    ${PROJECT_BINARY_DIR}/jxrlib.pc
+    @ONLY
+)
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
+    DESTINATION ${JXRLIB_INSTALL_LIBDIR}/pkgconfig
 )
 
-install(EXPORT jxrlib_targets
-  FILE jxrlib_targets.cmake
-  NAMESPACE jxrlib::
-  DESTINATION ${JXRLIB_CONFIGDIR}
+# install rules
+install(FILES jxrgluelib/JXRGlue.h jxrgluelib/JXRMeta.h jxrtestlib/JXRTest.h
+  image/sys/windowsmediaphoto.h
+  DESTINATION ${JXRLIB_INSTALL_INCLUDEDIR} COMPONENT Headers
 )
-
-include(CMakePackageConfigHelpers)
-
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/jxrlibConfig.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/jxrlibConfig.cmake
-  INSTALL_DESTINATION ${JXRLIB_CONFIGDIR}
-)
-
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/jxrlibConfig.cmake
-  DESTINATION ${JXRLIB_CONFIGDIR}
+install(DIRECTORY common/include/ DESTINATION ${JXRLIB_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.h"
 )
