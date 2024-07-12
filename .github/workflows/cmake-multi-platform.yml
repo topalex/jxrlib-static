@@ -20,7 +20,9 @@ jobs:
     - name: Set reusable strings
       id: strings
       shell: bash
-      run: echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+        echo "platform=${{ runner.os }}-${{ runner.arch }}" >> "$GITHUB_OUTPUT"
 
     - name: Configure CMake
       run: cmake -B ${{ steps.strings.outputs.build-output-dir }} -S ${{ github.workspace }}
@@ -28,25 +30,25 @@ jobs:
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config Release
 
-    - name: Upload artifact ${{ matrix.os }}
-      if: ${{ ! startsWith(matrix.os, 'windows') }}
+    - name: Pack artifact for ${{ matrix.os }} (${{ steps.strings.outputs.platform }})
+      if: runner.os != 'Windows'
+      run: |
+        cd ${{ steps.strings.outputs.build-output-dir }}
+        tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp JxrEncApp
+
+    - name: Pack artifact (windows) ${{ matrix.os }} (${{ steps.strings.outputs.platform }})
+      if: runner.os != 'Windows'
+      run: |
+        cd ${{ steps.strings.outputs.build-output-dir }}/Release
+        tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp.exe JxrEncApp.exe
+
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os }}
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/JxrDecApp
-          ${{ steps.strings.outputs.build-output-dir }}/JxrEncApp
+        name: ${{ steps.strings.outputs.platform }}
+        path: ${{ steps.strings.outputs.build-output-dir }}/${{ steps.strings.outputs.platform }}.tar
 
-    - name: Upload artifact (windows) ${{ matrix.os }}
-      if: startsWith(matrix.os, 'windows')
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.os }}
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/Release/JxrDecApp.exe
-          ${{ steps.strings.outputs.build-output-dir }}/Release/JxrEncApp.exe
-
-  create-release:
+  release-binaries:
     runs-on: ubuntu-20.04
     needs: [ build ]
     permissions:
@@ -54,42 +56,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Create Release
-      uses: ncipollo/release-action@v1
-      with:
-        draft: true
-
-  pack-prebuilt-binaries:
-    runs-on: ubuntu-20.04
-    needs: [ create-release ]
-    permissions:
-      contents: write
-
-    strategy:
-      matrix:
-        os:
-          - ubuntu-20.04
-          - windows-2022
-          - macos-12
-          - macos-14
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Download the artifact for ${{ matrix.os }}
+    
+    - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
-        name: ${{ matrix.os }}
-        path: build
-
-    - name: Pack
-      run:
-        tar -zcvf ${{ matrix.os }}.tar.gz build
+        path: ${{ github.workspace }}/build
 
     - name: Publish
       uses: ncipollo/release-action@v1
       with:
-        allowUpdates: true
-        artifacts: ${{ matrix.os }}.tar.gz
-        updateOnlyUnreleased: true
-        omitDraftDuringUpdate: true
+        artifacts: ${{ github.workspace }}/build/*.tar
