@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config Release
 
-    - name: Upload artifact: ${{ matrix.os }}
+    - name: Upload artifact ${{ matrix.os }}
       if: ${{ ! startsWith(matrix.os, 'windows') }}
       uses: actions/upload-artifact@v4
       with:
@@ -37,7 +37,7 @@ jobs:
           ${{ steps.strings.outputs.build-output-dir }}/JxrDecApp
           ${{ steps.strings.outputs.build-output-dir }}/JxrEncApp
 
-    - name: Upload artifact (windows): ${{ matrix.os }}
+    - name: Upload artifact (windows) ${{ matrix.os }}
       if: startsWith(matrix.os, 'windows')
       uses: actions/upload-artifact@v4
       with:
