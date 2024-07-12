@@ -37,7 +37,7 @@ jobs:
         tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp JxrEncApp
 
     - name: Pack artifact (windows) ${{ matrix.os }} (${{ steps.strings.outputs.platform }})
-      if: runner.os != 'Windows'
+      if: runner.os == 'Windows'
       run: |
         cd ${{ steps.strings.outputs.build-output-dir }}/Release
         tar -cvf ${{ steps.strings.outputs.platform }}.tar JxrDecApp.exe JxrEncApp.exe
