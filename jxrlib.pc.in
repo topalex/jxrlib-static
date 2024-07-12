@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@JXRLIB_PKGCONF_LIBDIR@
+includedir=@JXRLIB_PKGCONF_INCLUDEDIR@
+
+Name: jxrlib
+Description: A library for reading JPEG XR images.
+
+Version: @VERSION@
+Libs: -L${libdir} -ljpegxr -ljxrglue
+Libs.private: -lm
+Cflags: -I${includedir} -D__ANSI__ -DDISABLE_PERF_MEASUREMENT
