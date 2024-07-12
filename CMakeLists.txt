@@ -4,9 +4,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(jxrlib C)
 
-# Need shared libs for ABI
-set(BUILD_SHARED_LIBS ON)
-
 # helper macro to preserve original Makefile convention
 macro(JXR_MAKE_OBJ SET_NAME)
   foreach(src ${SRC_${SET_NAME}})
@@ -17,6 +14,7 @@ endmacro()
 if(NOT MSVC)
   add_definitions(-D__ANSI__)
   add_compile_options(-Wno-error=implicit-function-declaration)
+  set(ADD_LINK_MATH "m")
 endif()
 
 include(TestBigEndian)
@@ -33,7 +31,7 @@ set(DIR_GLUE jxrgluelib)
 set(DIR_TEST jxrtestlib)
 set(DIR_EXEC jxrencoderdecoder)
 
-set(VERSION "@VERSION@")
+set(VERSION "1.2-static")
 set(SOVERSION "0")
 
 if(NOT JXRLIB_INSTALL_BINDIR)
@@ -63,7 +61,7 @@ JXR_MAKE_OBJ(DEC)
 set(SRC_ENC encode.c segenc.c strenc.c strFwdTransform.c strPredQuantEnc.c)
 JXR_MAKE_OBJ(ENC)
 
-add_library(jpegxr STATIC ${OBJ_ENC} ${OBJ_DEC} ${OBJ_SYS})
+add_library(jpegxr ${OBJ_ENC} ${OBJ_DEC} ${OBJ_SYS})
 set_property(TARGET jpegxr
   PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
 )
@@ -83,7 +81,7 @@ JXR_MAKE_OBJ(GLUE)
 set(SRC_TEST JXRTest.c JXRTestBmp.c JXRTestHdr.c JXRTestPnm.c JXRTestTif.c JXRTestYUV.c)
 JXR_MAKE_OBJ(TEST)
 
-add_library(jxrglue STATIC ${OBJ_GLUE} ${OBJ_TEST})
+add_library(jxrglue ${OBJ_GLUE} ${OBJ_TEST})
 set_property(TARGET jxrglue
   PROPERTY COMPILE_DEFINITIONS __ANSI__ DISABLE_PERF_MEASUREMENT ${DEF_ENDIAN}
 )
@@ -96,7 +94,7 @@ install(TARGETS jxrglue
   LIBRARY DESTINATION ${JXRLIB_INSTALL_LIBDIR} COMPONENT Libraries
 )
 
-target_link_libraries(jxrglue PRIVATE jpegxr)
+target_link_libraries(jxrglue PRIVATE jpegxr ${ADD_LINK_MATH})
 
 # Enc app files
 set(ENCAPP JxrEncApp)
