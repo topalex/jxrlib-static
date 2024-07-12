@@ -80,10 +80,11 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ matrix.os }}
+        path: build
 
     - name: Pack
       run:
-        tar -zcvf ${{ matrix.os }}.tar.gz ${{ github.workspace }}
+        tar -zcvf ${{ matrix.os }}.tar.gz build
 
     - name: Publish
       uses: ncipollo/release-action@v1
