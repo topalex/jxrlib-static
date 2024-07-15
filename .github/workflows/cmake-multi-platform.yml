@@ -31,6 +31,12 @@ jobs:
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config Release
 
+    - name: Install GNU tar for macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew install gnu-tar
+        echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
+
     - name: Pack artifact for ${{ matrix.os }} (${{ steps.strings.outputs.platform }})
       if: runner.os != 'Windows'
       run: |
